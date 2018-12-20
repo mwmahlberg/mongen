@@ -1,0 +1,4 @@
+{
+  "ts": {"$date":{"min":"2018-01-01","max":"$now"}},
+  "v": {"$numberDecimal": {"min":0,"max":0.99,"fixed": 2}}
+}
