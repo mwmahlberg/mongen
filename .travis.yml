@@ -5,12 +5,5 @@ go:
 - tip
 - master
 
-before_install:
-  - go get -u -d github.com/magefile/mage
-  - cd $GOPATH/src/github.com/magefile/mage
-  - go run bootstrap.go
-
-install: true
-
 script:
-  - mage build
+  - go run mage.go build
