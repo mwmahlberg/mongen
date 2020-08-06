@@ -12,6 +12,7 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.10 // indirect
+	github.com/magefile/mage v1.10.0
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	go.mongodb.org/mongo-driver v1.4.0
