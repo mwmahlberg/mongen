@@ -1,9 +1,23 @@
 language: go
 
+services:
+- docker
+
 go:
 - 1.14.x
 - tip
 - master
 
 script:
-  - go run mage.go build
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+- go run mage.go build
+- go run mage.go docker:build
+
+after_success:
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+- if [  "$TRAVIS_BRANCH" = "master" ]; then go run mage.go docker:push ; fi
+
+env:
+  global:
+  - secure: txCG3Tzrv75YCjnQsXdjpiCipJTHKlweZac+ZVs+2yo94qy2+GGtNdJ3SOyFU5FoFrxfEGPlvv2qiqPx4/Wb58dGnqVYUvskwYQ5OsZgLQf/payhPdz2X4iHzE0N+YHRsGl3vTPfD/mEssTmeW0iAzTTRSWn1YW6eUrmQU6ez/dWWftjkmCZLLXbYVCCji45RMBPV5tPpdo1xnFF+zF4/kwqDyRHUiUgEQciZsE1h+66QGbk/Cfdh4AlfG/AMsxgKayoEGtHdbrgSyPZu876FsWYGV7z+KrbUZYQsGoSJ59FXeF0eePAQp6xHSOMDREN33gnLhdzQthSvC5CZgpKO4Zn9S7V5clKb83UOQ3KraYsxrMAX1hM8F2D57HHPpLVnvJtJ1pWb0dztE9WV1fk8WdLMAJh3iM8Oqnv9d67DBVe/gzalkXBbbe9DQ66Qc4rOSr39oLR9p8+QzocyYg7BQIEABYxmr7oQRHWwI82uP9tjFNq1QKtCDcwy4eMU0KLShpuSPqM7oY+ZuIvHvzCimOeFhtxMNifr8CNijOrQV7B9DVxS3JKWm+z9N1yi8biT/CkTgwmu7PsMSjUPB4s7SYlpkbOpJQiUc1TP/G7BoCZ4di0JTn9FCcl3LB7qe5qYHpp1eW/G7qXA9DqrohTYAzCrrJtwozAOdRqnWVoAEg=
+  - secure: 1IU2hCqC+l2xg+c2sVbn+R20BH1NCKkuxDjd4E1an1qwJc1UKeI5cnDlHadqdtjLs8jR94HVzbnkwoXrYFeUkgL8CDgk6Ulesu4uQEhps/Tt/UrquivzoYuxpT1xWjJcARKP4CecfEuyKJOCpmqqcG6iF6Bmp6FivCcR03tv0FZypm6lFV5wD6cuc2CVLloR13MheChq5dqyvsf22XyNxP5dBRjbX9XaIuz5OgWps3oGsueW5xCMdLctDxNA7FbWMIYUAb6fTqxkp4a9+hAnONxo9fsNmPzCnpqiml8m/TKYZD8ykfpYEzPucX4gQRTcyUu+cMAOUSh30tu3SPIZ+OjmQjFiJiLawNIQVJAB6173Js7uO4qD0FHPFGQYytTbpTBaXVtJAX/peLNv1rRdWhay4CEK+Mld9s9TVjL5zbKCFr4KLggPxYQYWONim5jSA34NCdQH4ZvkrnG8aVp+a0UZCwKREFm4N0aUw/KwqQlAWLKD1o2poGDj6fAGAldjZQU2wAGSFrKe1KbdYJEqz8CH3cPCTEIcpRhFVmcm2W2QAQ2/UmfBVOqR1TekVA3kpT2vD5cE8+4XDMuM9OK3QMou6xK1xvFlPhMwnPY3jRI5OW+z3zwCAH59BkKqBLlCiywjB9u3jlgL/5IKZLBtrqu95htJ/dU8IXKW0wpN3tc=
