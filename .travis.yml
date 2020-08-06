@@ -1,0 +1,16 @@
+language: go
+
+go:
+- 1.14.x
+- tip
+- master
+
+before_install:
+  - go get -u -d github.com/magefile/mage
+  - cd $GOPATH/src/github.com/magefile/mage
+  - go run bootstrap.go
+
+install: true
+
+script:
+  - mage build
