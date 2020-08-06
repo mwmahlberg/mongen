@@ -1,4 +1,4 @@
-module github.com/mwmahlberg/mgogenerate
+module github.com/mwmahlberg/mongen
 
 go 1.14
 
@@ -13,6 +13,7 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	go.mongodb.org/mongo-driver v1.4.0
 	gopkg.in/VividCortex/ewma.v1 v1.1.1 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mwmahlberg/mgogenerate/generate"
+	"github.com/mwmahlberg/mongen/generate"
 	"github.com/stretchr/testify/assert"
 )
 

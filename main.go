@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"gopkg.in/cheggaaa/pb.v2"
 
-	"github.com/mwmahlberg/mgogenerate/generate"
+	"github.com/mwmahlberg/mongen/generate"
 	"go.mongodb.org/mongo-driver/mongo"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -21,7 +21,7 @@ import (
 const customProgress pb.ProgressBarTemplate = `{{string . "prefix"}}{{counters . }} {{bar . }} {{percent . }} {{speed . "%s docs/sec"}} {{rtime . "ETA %s"}}{{string . "suffix"}}`
 
 var (
-	app     = kingpin.New("mgogenerate", "Go implementation of a document generator for BSON documents")
+	app     = kingpin.New("mongen", "Go implementation of a document generator for BSON documents")
 	numDocs int
 	numOps  int
 	runners int
