@@ -45,7 +45,7 @@ func init() {
 	app.Flag("host", "host to connect to").Default("127.0.0.1").Short('h').StringVar(&host)
 	app.Flag("port", "port to connect to").Short('p').Default("27017").Uint16Var(&port)
 	app.Flag("db", "database to use").Short('d').Default("test").StringVar(&db)
-	app.Flag("collection", "collection to use").Short('c').Default("mgogenerate").StringVar(&collection)
+	app.Flag("collection", "collection to use").Short('c').Default("mongen").StringVar(&collection)
 	app.Flag("debug", "activate debug logging").Default("false").BoolVar(&debug)
 	app.Arg("file.json", "template file to be used").Default("template.json").StringVar(&tmplFileName)
 
