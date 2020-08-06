@@ -1,4 +1,22 @@
 {
-  "ts": {"$date":{"min":"2018-01-01","max":"$now"}},
-  "v": {"$numberDecimal": {"min":0,"max":0.99,"fixed": 2}}
+    "_id": {{objectId}},
+    "referrer": {{objectId}},
+    "uuid": "{{ uuidv4 }}",
+    "decimalWithMinAndMax": {{ randDecimal 1.00 5.00 | printf "%.3f" }},
+    "decimalFormatted": {{ randDecimal 1.00 5.00 | printf "%.5f" }},
+    "int": {{ randInteger 10 40}},
+    "array": [
+        {{- range $index, $i := N 1 10 -}}
+        {{- if $index -}}, {{ end -}}
+        {{ randInteger 10 40 }}
+        {{- end -}}
+    ],
+    "arrayOfFloat": [
+        {{- range $index, $i := N 1 10 -}}
+        {{- if $index -}}, {{ end -}}
+        {{ randDecimal 0.00 100 | printf "%.3f" }}
+        {{- end -}}
+    ],
+    "created": {{ isoDate "2018-12-20T22:28:00.254Z" "2018-12-20T22:41:05.587Z" }},
+    "oneOf": "{{ oneOf "foo" "bar" "baz" "bam"}}"
 }

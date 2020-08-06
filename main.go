@@ -1,175 +1,175 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
-	"log"
+	"io"
 	"math/rand"
 	"os"
-	"reflect"
-	"strconv"
+	"text/template"
 	"time"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/Masterminds/sprig"
+	"github.com/hashicorp/go-hclog"
+	"gopkg.in/cheggaaa/pb.v2"
 
-	"github.com/araddon/dateparse"
-	"github.com/mitchellh/mapstructure"
+	"github.com/mwmahlberg/mgogenerate/generate"
+	"go.mongodb.org/mongo-driver/mongo"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-var numDocs int
-var app = kingpin.New("mgogenerate", "Go implementation of a document generator for BSON documents")
-var tmplFileName string
-var tmplFile *os.File
+const customProgress pb.ProgressBarTemplate = `{{string . "prefix"}}{{counters . }} {{bar . }} {{percent . }} {{speed . "%s docs/sec"}} {{rtime . "ETA %s"}}{{string . "suffix"}}`
 
-// Generator is an interface defining the types used for Random generation of Values.
-type Generator interface {
-	Generate() interface{}
-}
+var (
+	app     = kingpin.New("mgogenerate", "Go implementation of a document generator for BSON documents")
+	numDocs int
+	numOps  int
+	runners int
+	host    string
+	port    uint16
 
-type Decimal struct {
-	Min   float64
-	Max   float64
-	Fixed int
-}
+	db         string
+	collection string
 
-func (d *Decimal) Generate() interface{} {
-	r := rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
-	f, _ := strconv.ParseFloat(fmt.Sprintf("%.*f", d.Fixed, r.Float64()*(d.Max-d.Min)+d.Min), 0)
-	return f
-}
+	tmplFileName string
 
-type ISODate struct {
-	Min time.Time
-	Max time.Time
-}
-
-func (i *ISODate) Generate() interface{} {
-	r := rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
-	log.Println(i.Min)
-	log.Println(i.Max)
-	log.Println(i.Min.Location().String())
-	min := i.Min.UnixNano()
-	max := i.Max.UnixNano()
-	s := r.Int63n(max-min+1) + min
-	log.Println(min, max, max-min, s)
-	return time.Unix(0, s)
-}
+	logger hclog.Logger
+	debug  bool
+)
 
 func init() {
+	app.Version("1.0.1")
+	app.Flag("runners", "number of concurrent generators").Short('r').Default("2").IntVar(&runners)
 	app.Flag("number", "number of documents to generate").Short('n').Default("1").IntVar(&numDocs)
+	app.Flag("ops", "number of inserts per bulk operation").Default("1000").Short('o').IntVar(&numOps)
+	app.Flag("host", "host to connect to").Default("127.0.0.1").Short('h').StringVar(&host)
+	app.Flag("port", "port to connect to").Short('p').Default("27017").Uint16Var(&port)
+	app.Flag("db", "database to use").Short('d').Default("test").StringVar(&db)
+	app.Flag("collection", "collection to use").Short('c').Default("mgogenerate").StringVar(&collection)
+	app.Flag("debug", "activate debug logging").Default("false").BoolVar(&debug)
 	app.Arg("file.json", "template file to be used").Default("template.json").StringVar(&tmplFileName)
+
+	logger = hclog.Default()
 }
 
 func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
-	if _, err := os.Stat(tmplFileName); os.IsNotExist(err) {
-		log.Fatalf("File '%s' does not exist.", tmplFileName)
+
+	if debug {
+		logger.SetLevel(hclog.Debug)
 	}
-	var err error
+
+	var (
+		err      error
+		tmplFile *os.File
+		tmpl     *template.Template
+	)
+
+	if tmplFile, err = setupFile(tmplFileName); err != nil {
+		logger.Error("opening template file", "path", tmplFileName, "error", err)
+		os.Exit(1)
+	}
+	defer tmplFile.Close()
+
+	if tmpl, err = setupTemplate(tmplFile); err != nil {
+		logger.Error("setting up template", "file", tmplFile, "error", err)
+		os.Exit(3)
+	}
+
+	/* Sanitize the input */
+	if numDocs < numOps {
+		logger.Warn("Adjusting number of operations for bulk commit", "documents", numDocs, "operations", numOps)
+		numOps = numDocs
+		logger.Warn("Adjusted the number of operations for bulk commit", "numOps", numOps)
+	}
+	logger.Debug("Bulk operations commit interval", "operations", numOps)
+
+	mongoURL := fmt.Sprintf("mongodb://%s:%d", host, port)
+
+	outs := make([]chan *mongo.InsertOneModel, 0)
+
+	chunkSize := numDocs / runners
+	remainder := numDocs % chunkSize
+	for r := 1; r <= runners; r++ {
+		if r == runners {
+			chunkSize = chunkSize + remainder
+		}
+		logger.Debug("Spinning up pump", "number", r, "docs", chunkSize)
+		outs = append(outs, pump(chunkSize, tmpl, logger.Named("pump").With("pump#", r)))
+	}
+
+	a := aggregate(logger.Named("aggregate"), outs...)
+
+	progress := setUpProgressBar()
+	d, err := mongoSink(a, mongoURL, int(numOps), progress, logger.Named("sink"))
+
+	logger.Debug("Finished generating document",
+		"time elapsed", d,
+		"documents generated", numDocs,
+		"average/document", time.Duration((*d).Nanoseconds()/int64(numDocs)))
+}
+
+func setUpProgressBar() *pb.ProgressBar {
+	progress := pb.New(int(numDocs))
+	progress.SetTemplate(customProgress)
+	progress.Set("prefix", "Documents written: ")
+	return progress
+}
+
+func setupFile(tmplFileName string) (tmplFile *os.File, err error) {
+	/*
+	 * Check whether the input file exists
+	 */
+	if _, err = os.Stat(tmplFileName); os.IsNotExist(err) {
+		return nil, fmt.Errorf("template file does not exist: %s", err)
+	} else if err != nil {
+		return nil, fmt.Errorf("accessing template file: %s", err)
+	}
 
 	if tmplFile, err = os.Open(tmplFileName); err != nil {
 
 		switch {
 		case os.IsPermission(err):
-			log.Fatalf("Insufficient permissions to read file: %s", err)
+			return nil, fmt.Errorf("opening template file '%s': insufficient persmissions: %s", tmplFileName, err)
 		default:
-			log.Fatalf("Error opening '%s': %s", tmplFileName, err)
+			return nil, fmt.Errorf("opening template file '%s': %s", tmplFileName, err)
 		}
 	}
 
-	defer tmplFile.Close()
+	return
+}
 
-	var tmpl map[string]interface{}
+func setupTemplate(tmplData io.Reader) (*template.Template, error) {
 
-	dec := json.NewDecoder(tmplFile)
+	var err error
 
-	if err = dec.Decode(&tmpl); err != nil {
-		panic(err)
+	buf := bytes.NewBuffer(nil)
+
+	if _, err := io.Copy(buf, tmplData); err != nil {
+		return nil, fmt.Errorf("Error reading template data: %s", err)
 	}
 
-	doc := make(map[string]interface{})
-	log.Printf("Before loop: %v", tmpl)
-
-	p := time.Unix(0, 0)
-	dateDec, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		ErrorUnused: true,
-		Result:      &p,
-		DecodeHook: func(
-			f reflect.Kind,
-			t reflect.Kind,
-			data interface{}) (interface{}, error) {
-			log.Println(data, "bar", t, f)
-			s, ok := data.(map[string]interface{})
-			if !ok {
-				return nil, errors.New("Invalid Value")
-			}
-			d := ISODate{}
-			if min, ok := s["min"].(string); ok && s["min"] != "" {
-				if min == "$now" {
-					d.Min = time.Now()
-				} else if d.Min, err = dateparse.ParseAny(min); err != nil {
-					log.Printf("Could not parse min date '%s' to date: %s", min, err)
-					return nil, err
-				}
-			}
-
-			if max, ok := s["max"].(string); ok && s["max"] != "" {
-				if max == "$now" {
-					d.Max = time.Now()
-				} else if d.Max, err = dateparse.ParseAny(max); err != nil {
-					log.Printf("Could not parse max date '%s' to date: %s", max, err)
-					return nil, err
-				}
-			} else {
-				d.Max = time.Now()
-			}
-			log.Println("Date range:", d.Min, d.Max)
-			return d, nil
-		},
-	})
-
-	for kk, v := range tmpl {
-		if t, ok := v.(map[string]interface{}); ok {
-			for k, vv := range t {
-				switch k {
-				case "$numberDecimal":
-					d := Decimal{}
-					mapstructure.Decode(vv, &d)
-					log.Println("Generated", d.Generate())
-					doc[kk] = &d
-				case "$date":
-					d := ISODate{}
-					dateDec.Decode(vv)
-					log.Println("Generated", d.Generate())
-					doc[kk] = &d
-				}
-			}
-		}
+	tmpl := template.New("input")
+	fm := template.FuncMap{
+		"randDecimal": generate.Decimal,
+		"randInteger": generate.Integer,
+		"isoDate":     generate.ISODate,
+		"objectId":    generate.ObjectId,
+		"oneOf":       generate.OneOf,
+		"N":           generate.N,
 	}
 
-	log.Printf("After loop: %#v", doc)
-
-	for k, v := range doc {
-		log.Println(v)
-		if vv, ok := v.(Generator); !ok {
-			panic("Should be matched!")
-		} else {
-			doc[k] = vv.Generate()
-		}
+	for k, v := range sprig.FuncMap() {
+		fm[k] = v
 	}
 
-	b, _ := bson.MarshalJSON(&doc)
-	log.Println("BSON", string(b))
-	b2, e := json.MarshalIndent(&doc, "> ", "  ")
-	if e != nil {
-		panic(e)
-	}
-	log.Println("JSON", string(b2))
+	tmpl.Funcs(fm)
 
-	i := ISODate{}
-	i.Max = time.Now()
-	i.Min = time.Now().Add(-48 * time.Hour)
-	log.Println(i.Generate())
+	if tmpl, err = tmpl.Parse(buf.String()); err != nil {
+		return nil, fmt.Errorf("Error parsing template: %s", err)
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	return tmpl, nil
 }
