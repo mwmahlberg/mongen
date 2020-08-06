@@ -32,7 +32,7 @@ func ISODate(min, max string) (string, error) {
 	case "now":
 		minDate = time.Now().UTC()
 	default:
-		if minDate, err = time.Parse(MongoDateFormat, min); err != nil {
+		if minDate, err = time.Parse(time.RFC3339Nano, min); err != nil {
 			return "", fmt.Errorf("Error parsing '%s': %s", min, err)
 		}
 	}
@@ -43,7 +43,7 @@ func ISODate(min, max string) (string, error) {
 	case "now":
 		maxDate = time.Now().UTC()
 	default:
-		if maxDate, err = time.Parse(MongoDateFormat, max); err != nil {
+		if maxDate, err = time.Parse(time.RFC3339Nano, max); err != nil {
 			return "", fmt.Errorf("Error parsing '%s': %s", max, err)
 		}
 	}

@@ -9,23 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// func TestISODate(t *testing.T) {
-// 	d, err := generate.ISODate("now", "")
-// 	assert.NoError(t, err)
-
-// 	v := make(map[string]interface{})
-
-// 	err = json.Unmarshal([]byte(d), &v)
-// 	assert.NoError(t, err, "Unmarshalling of %s failed: %s", d, err)
-// 	assert.NotEmpty(t, v["$date"], "Unmarshalled JSON did not contain \"$date\": %#v", v)
-
-// 	date, err := time.Parse(generate.MongoDateFormat, v["$date"].(string))
-// 	assert.NoError(t, err, "Date value %s could not be parsed as ISODate in format %s:%s", v["$date"], generate.MongoDateFormat, err)
-
-// 	assert.NotNil(t, date)
-// }
-
-func TestISODateN(t *testing.T) {
+func (s *GeneratorTestSuite) TestISODate() {
 	testCases := []struct {
 		desc   string
 		start  string
@@ -75,10 +59,10 @@ func TestISODateN(t *testing.T) {
 		},
 	}
 	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
+		s.T().Run(tC.desc, func(t *testing.T) {
 			// for i := 0; i < 50; i++ {
 			d, err := generate.ISODate(tC.start, tC.end)
-			t.Logf("Date: %s", d)
+
 			if tC.errors {
 				assert.Error(t, err)
 				assert.Empty(t, d)
@@ -93,7 +77,6 @@ func TestISODateN(t *testing.T) {
 
 			date, err := time.Parse(generate.MongoDateFormat, v["$date"].(string))
 			assert.NoErrorf(t, err, "value of '$date' field ('%s')could not be parsed: %s", v["$date"].(string), err)
-			t.Logf("%s", date)
 
 			if tC.start != "" && tC.start != "now" {
 				start, _ := time.Parse(generate.MongoDateFormat, tC.start)

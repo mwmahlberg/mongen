@@ -8,17 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDecimal(t *testing.T) {
-	var v float64
-	// Ensure that the boundaries are obeyed
-	// by the way we calculate it.
-	for i := 1; i < 50; i++ {
-		v = generate.Decimal(float64(i), float64(i))
-		assert.EqualValues(t, float64(i), v)
-	}
-}
-
-func Test(t *testing.T) {
+func (s *GeneratorTestSuite) TestDecimal() {
 	testCases := []struct {
 		desc         string
 		min          float64
@@ -42,7 +32,7 @@ func Test(t *testing.T) {
 		},
 	}
 	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
+		s.T().Run(tC.desc, func(t *testing.T) {
 			for i := 0; i < 50; i++ {
 				v := generate.Decimal(tC.min, tC.max)
 				assert.True(t, v < tC.max_expected && v > tC.min_expected, "Test failed for %f", v)
