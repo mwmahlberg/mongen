@@ -27,10 +27,10 @@ func (s *GeneratorTestSuite) TestISODate() {
 		{
 			desc:  "Start 'now', end date",
 			start: "now",
-			end:   time.Now().UTC().Add(time.Hour).Format(generate.MongoDateFormat),
+			end:   time.Now().UTC().Add(24 * time.Hour).Format(generate.MongoDateFormat),
 		},
 		{
-			desc:  "Start 'now', end date",
+			desc:  "Start date, end 'now'",
 			start: time.Now().UTC().Add(-1 * time.Hour).Format(generate.MongoDateFormat),
 			end:   "now",
 		},
@@ -75,7 +75,7 @@ func (s *GeneratorTestSuite) TestISODate() {
 			err = json.Unmarshal([]byte(d), &v)
 			assert.NoError(t, err, "generator did not return unparseable JSON value '%s': %s", d, err)
 
-			date, err := time.Parse(generate.MongoDateFormat, v["$date"].(string))
+			date, err := time.Parse(time.RFC3339Nano, v["$date"].(string))
 			assert.NoErrorf(t, err, "value of '$date' field ('%s')could not be parsed: %s", v["$date"].(string), err)
 
 			if tC.start != "" && tC.start != "now" {

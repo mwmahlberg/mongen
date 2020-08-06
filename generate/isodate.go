@@ -9,7 +9,7 @@ import (
 
 // MongoDateFormat differs from time.RFC3339Nano as it only
 // has millisecond precision.
-const MongoDateFormat = "2006-01-02T15:04:05.999+07:00"
+const MongoDateFormat = "2006-01-02T15:04:05.999Z07:00"
 
 // ISODate returns a string representing an ISODate as used by MongoDB.
 // However, min and max can be in either MongoDateFormat or time.RFC3339Nano
@@ -32,7 +32,7 @@ func ISODate(min, max string) (string, error) {
 	case "now":
 		minDate = time.Now().UTC()
 	default:
-		if minDate, err = time.Parse(time.RFC3339Nano, min); err != nil {
+		if minDate, err = time.Parse(MongoDateFormat, min); err != nil {
 			return "", fmt.Errorf("Error parsing '%s': %s", min, err)
 		}
 	}
@@ -43,7 +43,7 @@ func ISODate(min, max string) (string, error) {
 	case "now":
 		maxDate = time.Now().UTC()
 	default:
-		if maxDate, err = time.Parse(time.RFC3339Nano, max); err != nil {
+		if maxDate, err = time.Parse(MongoDateFormat, max); err != nil {
 			return "", fmt.Errorf("Error parsing '%s': %s", max, err)
 		}
 	}
